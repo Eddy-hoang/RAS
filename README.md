@@ -12,23 +12,24 @@ Hệ thống cung cấp giải pháp quản trị tập trung an toàn (Authoriz
 
 ---
 
-## 📋 Mục lục (Table of Contents)
+## Mục lục (Table of Contents)
 
-1. [Triết lý thiết kế (Overview & Design Philosophy)](#-triết-lý-thiết-kế-overview--design-philosophy)
-2. [Kiến trúc hệ thống (System Architecture)](#-kiến-trúc-hệ-thống-system-architecture)
-3. [Điểm nhấn kỹ thuật (Technical Highlights)](#-điểm-nhấn-kỹ-thuật-technical-highlights)
+1. [Triết lý thiết kế (Overview & Design Philosophy)](#triết-lý-thiết-kế-overview--design-philosophy)
+2. [Kiến trúc hệ thống (System Architecture)](#kiến-trúc-hệ-thống-system-architecture)
+3. [Luồng giao tiếp Kênh đôi (Dual-Channel Sequence)](#luồng-giao-tiếp-kênh-đôi-dual-channel-sequence)
+4. [Điểm nhấn kỹ thuật (Technical Highlights)](#điểm-nhấn-kỹ-thuật-technical-highlights)
    - [Định dạng Frame nhị phân 12-byte](#1-định-dạng-frame-nhị-phân-12-byte)
    - [Bảo mật & Tamper-Evident Audit Log](#2-bảo-mật--tamper-evident-audit-log)
-   - [Delta Screen Streaming ($64 \times 64$ Tile)](#3-delta-screen-streaming-64-times-64-tile)
+   - [Delta Screen Streaming (64 x 64 Tile)](#3-delta-screen-streaming-64-x-64-tile)
    - [Hiệu năng Concurrency & Virtual Threads Benchmark](#4-hiệu-năng-concurrency--virtual-threads-benchmark)
-4. [Cấu trúc thư mục (Multi-Module Repository)](#-cấu-trúc-thư-mục-multi-module-repository)
-5. [Hướng dẫn cài đặt & Khởi chạy (Installation & Execution)](#-hướng-dẫn-cài-đặt--khởi-chạy-installation--execution)
-6. [Kịch bản Demo nhanh (Quick Demo Walkthrough)](#-kịch-bản-demo-nhanh-quick-demo-walkthrough)
-7. [Giấy phép & Tác giả (License & Author)](#-giấy-phép--tác-giả-license--author)
+5. [Cấu trúc thư mục (Multi-Module Repository)](#cấu-trúc-thư-mục-multi-module-repository)
+6. [Hướng dẫn cài đặt & Khởi chạy (Installation & Execution)](#hướng-dẫn-cài-đặt--khởi-chạy-installation--execution)
+7. [Kịch bản Demo nhanh (Quick Demo Walkthrough)](#kịch-bản-demo-nhanh-quick-demo-walkthrough)
+8. [Giấy phép & Tác giả (License & Author)](#giấy-phép--tác-giả-license--author)
 
 ---
 
-## 💡 Triết lý thiết kế (Overview & Design Philosophy)
+## Triết lý thiết kế (Overview & Design Philosophy)
 
 Dự án được xây dựng dựa trên 3 nguyên tắc cốt lõi:
 
@@ -38,60 +39,70 @@ Dự án được xây dựng dựa trên 3 nguyên tắc cốt lõi:
 
 ---
 
-## 📐 Kiến trúc hệ thống (System Architecture)
+## Kiến trúc hệ thống (System Architecture)
 
-```text
-┌─────────────────────────────────────────────────────────────┐
-│                  ADMIN CONSOLE (JavaFX 24)                  │
-│  - Client Manager Tab   - File Explorer Tab                 │
-│  - Process Manager Tab  - Delta Screen Stream View           │
-│  - Audit Log View       - Benchmark Dashboard               │
-└──────────────────────────┬──────────────────────────────────┘
-                           │ mTLS 1.3 / TCP
-                           ▼
-┌─────────────────────────────────────────────────────────────┐
-│                        SRAP SERVER                          │
-│  ┌───────────────────────────────────────────────────────┐  │
-│  │ Connection Layer: Virtual Threads Listener (Java 24)  │  │
-│  └───────────────────────────────────────────────────────┘  │
-│  ┌───────────────────────────────────────────────────────┐  │
-│  │ Session Layer: Dual Channel Binding (Control + Data)  │  │
-│  └───────────────────────────────────────────────────────┘  │
-│  ┌───────────────────────────────────────────────────────┐  │
-│  │ Security Layer: mTLS Auth · RBAC · Hash-Chain Audit   │  │
-│  └───────────────────────────────────────────────────────┘  │
-│  ┌───────────────────────────────────────────────────────┐  │
-│  │ Service Layer: Command Dispatcher · Screen Relay Svc   │  │
-│  └───────────────────────────────────────────────────────┘  │
-└──────────┬───────────────────────────────┬──────────────────┘
-           │ mTLS 1.3 / TCP Outbound       │ mTLS 1.3 / TCP Outbound
-           ▼                               ▼
-┌──────────────────────┐        ┌──────────────────────┐
-│    CLIENT AGENT A    │        │    CLIENT AGENT B    │
-│  - Network & Auth    │        │  - Network & Auth    │
-│  - System/Process Svc│        │  - System/Process Svc│
-│  - File Service      │        │  - File Service      │
-│  - Delta Screen Capt │        │  - Delta Screen Capt │
-└──────────────────────┘        └──────────────────────┘
+```mermaid
+graph TD
+    subgraph AdminConsole["Admin Console (JavaFX 24)"]
+        UI["Client Manager / Process Manager / File Explorer / Remote Screen View"]
+    end
+
+    subgraph ServerNode["SRAP Server"]
+        VL["Connection Layer: Virtual Threads Listener (Java 24)"]
+        SM["Session Layer: Dual Channel Binding (Control + Data)"]
+        SEC["Security Layer: mTLS Auth / RBAC / Hash-Chain Audit"]
+        DISP["Service Layer: Command Dispatcher / Screen Relay Service"]
+    end
+
+    subgraph AgentNodes["Client Agents (Workstations)"]
+        AgentA["Client Agent A (Outbound mTLS)"]
+        AgentB["Client Agent B (Outbound mTLS)"]
+    end
+
+    AdminConsole <-->|"mTLS 1.3 / TCP (Control + Data Channels)"| ServerNode
+    ServerNode <-->|"mTLS 1.3 / TCP Outbound"| AgentA
+    ServerNode <-->|"mTLS 1.3 / TCP Outbound"| AgentB
 ```
-
-### Thiết kế Kênh đôi (Dual-Channel Architecture)
-1. **Control Channel (Kênh điều khiển):** Truyền nhận các thông điệp RPC dạng JSON (System Info, Process List, Heartbeat, Auth) qua Jackson Databind.
-2. **Data Channel (Kênh dữ liệu nhị phân):** Truyền nhận các mảng byte thô (File chunk 64KB, Screen Tile 64x64) được nối với Control Channel thông qua `SessionToken`. Việc tách kênh giúp việc truyền dữ liệu lớn không làm gián đoạn hay nghẽn các lệnh điều khiển hệ thống.
 
 ---
 
-## 🔬 Điểm nhấn kỹ thuật (Technical Highlights)
+## Luồng giao tiếp Kênh đôi (Dual-Channel Sequence)
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant Agent as Client Agent
+    participant Server as SRAP Server
+    participant Admin as Admin Console
+
+    Note over Agent,Server: Outbound Connection (Firewall / NAT Friendly)
+    Agent->>Server: 1. Control Channel Connection (mTLS 1.3)
+    Agent->>Server: 2. AUTH_REQUEST (ClientId, Credentials)
+    Server-->>Agent: 3. AUTH_RESPONSE (SessionToken)
+    
+    Agent->>Server: 4. Data Channel Connection (SessionToken)
+    Server-->>Agent: 5. Dual Channel Bound
+
+    Admin->>Server: 6. Connect & Login (ADMIN Role)
+    Admin->>Server: 7. Dispatch Command (e.g. SCREEN_START_REQUEST)
+    Server->>Agent: 8. Relay Command
+    Agent->>Server: 9. Stream Raw Binary Tiles (Data Channel)
+    Server->>Admin: 10. Zero-Copy Tile Relay
+```
+
+---
+
+## Điểm nhấn kỹ thuật (Technical Highlights)
 
 ### 1. Định dạng Frame nhị phân 12-byte
 
 Mọi gói tin truyền qua Socket đều tuân theo cấu trúc Header cố định 12 bytes (Big-Endian):
 
 ```text
-┌──────────────┬──────────────┬──────────────┬────────────────────────┐
-│ MAGIC / VER  │ PAYLOAD SIZE │ TYPE / CHAN  │        PAYLOAD         │
-│   4 bytes    │   4 bytes    │   4 bytes    │  N bytes (0 <= N <=16M)│
-└──────────────┴──────────────┴──────────────┴────────────────────────┘
++----------------+----------------+----------------+------------------+
+|   MAGIC / VER  |  PAYLOAD SIZE  |  TYPE / CHAN   |     PAYLOAD      |
+|    4 bytes     |    4 bytes     |    4 bytes     | N bytes (<=16MB) |
++----------------+----------------+----------------+------------------+
 ```
 
 | Trường (Field) | Kích thước | Mô tả |
@@ -150,7 +161,7 @@ Hệ thống tận dụng tính năng **Virtual Threads (JEP 444 / Java 24)** gi
 
 ---
 
-## 📁 Cấu trúc thư mục (Multi-Module Repository)
+## Cấu trúc thư mục (Multi-Module Repository)
 
 ```text
 RemoteAdministrationSystem/
@@ -169,7 +180,7 @@ RemoteAdministrationSystem/
 
 ---
 
-## 🛠️ Hướng dẫn cài đặt & Khởi chạy (Installation & Execution)
+## Hướng dẫn cài đặt & Khởi chạy (Installation & Execution)
 
 ### 1. Yêu cầu hệ thống (Prerequisites)
 * **Java Development Kit (JDK):** Version 24 trở lên.
@@ -223,7 +234,7 @@ java -jar benchmark/target/benchmark-1.0-SNAPSHOT.jar
 
 ---
 
-## 🎬 Kịch bản Demo nhanh (Quick Demo Walkthrough)
+## Kịch bản Demo nhanh (Quick Demo Walkthrough)
 
 1. **Kết nối mTLS & Session:** Khởi động Server, bật 2 Agent và khởi chạy Admin Console. Quan sát trên bảng điều khiển danh sách các máy trạm ONLINE ngay lập tức.
 2. **Quản lý Tiến trình (Process Manager):** Chọn máy `PC-01`, xem danh sách tiến trình đang chạy, thực hiện chấm dứt tiến trình `notepad.exe` (PID Kill).
@@ -234,7 +245,7 @@ java -jar benchmark/target/benchmark-1.0-SNAPSHOT.jar
 
 ---
 
-## 📄 Giấy phép & Tác giả (License & Author)
+## Giấy phép & Tác giả (License & Author)
 
 Dự án được phân phối dưới giấy phép **MIT License**.
 
