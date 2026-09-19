@@ -65,11 +65,23 @@ public class ScreenCaptureService {
     }
 
     private byte[] compressToJpeg(BufferedImage image, float quality) throws IOException {
+        BufferedImage rgbImage = new BufferedImage(image.getWidth(), image.getHeight(), BufferedImage.TYPE_INT_RGB);
+        Graphics2D g2d = rgbImage.createGraphics();
+        g2d.drawImage(image, 0, 0, null);
+        g2d.dispose();
+
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
-        ImageIO.write(image, "jpg", baos);
+        ImageIO.write(rgbImage, "jpg", baos);
         return baos.toByteArray();
     }
 
     public boolean isStreaming() { return streaming; }
-    public void setStreaming(boolean streaming) { this.streaming = streaming; }
+    public void setStreaming(boolean streaming) {
+        this.streaming = streaming;
+        if (streaming) {
+            synchronized (this) {
+                prevTileHashes.clear();
+            }
+        }
+    }
 }

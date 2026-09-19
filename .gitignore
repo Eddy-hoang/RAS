@@ -36,3 +36,10 @@ build/
 
 ### Mac OS ###
 .DS_Store
+
+### Skills & Agent Tools ###
+.agents/
+ponytail/
+taste-skill/
+ui-ux-pro-max-skill/
+logs/

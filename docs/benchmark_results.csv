@@ -1,0 +1,10 @@
+ExecutorType,ClientCount,TotalRequests,ThroughputReqSec,P50LatencyMs,P95LatencyMs,P99LatencyMs,MemoryUsedMB
+FixedThreadPool-50,100,2000,3929.27,0.00,1.00,226.00,32
+FixedThreadPool-200,100,1460,5793.65,0.00,3.00,11.00,39
+Java24-VirtualThreads,100,2000,7604.56,0.00,2.00,3.00,42
+FixedThreadPool-50,500,5400,3904.56,0.00,2.00,900.00,50
+FixedThreadPool-200,500,2400,8000.00,0.00,2.00,16.00,62
+Java24-VirtualThreads,500,2620,9003.44,0.00,3.00,34.00,68
+FixedThreadPool-50,1000,3680,3894.18,0.00,7.00,450.00,78
+FixedThreadPool-200,1000,3160,9905.96,0.00,3.00,48.00,95
+Java24-VirtualThreads,1000,3260,9209.04,1.00,5.00,61.00,103
