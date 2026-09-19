@@ -49,6 +49,13 @@ public class AppLauncher extends Application {
     public void start(Stage primaryStage) {
         primaryStage.setTitle("RAS // SECURE REMOTE ADMINISTRATION PLATFORM [SOC COMMAND CENTER]");
 
+        try {
+            InputStream iconStream = getClass().getResourceAsStream("/images/logo.png");
+            if (iconStream != null) {
+                primaryStage.getIcons().add(new javafx.scene.image.Image(iconStream));
+            }
+        } catch (Exception ignored) {}
+
         BorderPane root = new BorderPane();
 
         // 1. Header
