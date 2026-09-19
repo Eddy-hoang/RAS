@@ -245,9 +245,7 @@ java -jar benchmark/target/benchmark-1.0-SNAPSHOT.jar
 
 ---
 
-## Giấy phép & Tác giả (License & Author)
 
 Dự án được phân phối dưới giấy phép **MIT License**.
 
-* **Tác giả:** Đội ngũ phát triển đồ án Lập trình mạng / System Programming.
-* **Tài liệu tham khảo:** [docs/protocol.md](docs/protocol.md) | [docs/security.md](docs/security.md) | [docs/benchmark.md](docs/benchmark.md)
+* **Tác giả:** NghiaxEddy.
