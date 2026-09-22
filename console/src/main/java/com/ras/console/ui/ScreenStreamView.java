@@ -90,23 +90,27 @@ public class ScreenStreamView extends VBox {
                 if (ty > maxY) maxY = ty;
             }
 
+            int targetW = Math.max((int) screenCanvas.getWidth(), maxX);
+            int targetH = Math.max((int) screenCanvas.getHeight(), maxY);
+
             if (!canvasInitialized && maxX > 0 && maxY > 0) {
-                screenCanvas.setWidth(maxX);
-                screenCanvas.setHeight(maxY);
+                screenCanvas.setWidth(targetW);
+                screenCanvas.setHeight(targetH);
                 canvasInitialized = true;
                 if (gc != null) {
                     gc.setFill(Color.web("#0f172a"));
-                    gc.fillRect(0, 0, maxX, maxY);
+                    gc.fillRect(0, 0, targetW, targetH);
                 }
             }
 
             for (ScreenTileDTO tile : tiles) {
                 if (tile.getJpegData() != null && tile.getJpegData().length > 0) {
-                    ByteArrayInputStream bais = new ByteArrayInputStream(tile.getJpegData());
-                    Image img = new Image(bais);
-                    if (gc != null) {
-                        gc.drawImage(img, tile.getX(), tile.getY(), tile.getWidth(), tile.getHeight());
-                    }
+                    try (ByteArrayInputStream bais = new ByteArrayInputStream(tile.getJpegData())) {
+                        Image img = new Image(bais, tile.getWidth(), tile.getHeight(), false, false);
+                        if (gc != null) {
+                            gc.drawImage(img, tile.getX(), tile.getY(), tile.getWidth(), tile.getHeight());
+                        }
+                    } catch (Exception ignored) {}
                 }
             }
         }

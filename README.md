@@ -24,8 +24,16 @@ Hệ thống cung cấp giải pháp quản trị tập trung an toàn (Authoriz
    - [Hiệu năng Concurrency & Virtual Threads Benchmark](#4-hiệu-năng-concurrency--virtual-threads-benchmark)
 5. [Cấu trúc thư mục (Multi-Module Repository)](#cấu-trúc-thư-mục-multi-module-repository)
 6. [Hướng dẫn cài đặt & Khởi chạy (Installation & Execution)](#hướng-dẫn-cài-đặt--khởi-chạy-installation--execution)
-7. [Kịch bản Demo nhanh (Quick Demo Walkthrough)](#kịch-bản-demo-nhanh-quick-demo-walkthrough)
-8. [Giấy phép & Tác giả (License & Author)](#giấy-phép--tác-giả-license--author)
+7. [Hướng dẫn sử dụng & Chi tiết Chức năng từng Tab (User Guide & UI Tabs Detail)](#hướng-dẫn-sử-dụng--chi-tiết-chức-năng-từng-tab-user-guide--ui-tabs-detail)
+   - [📊 1. Tab Dashboard — Telemetry & Tổng quan Hệ thống](#1-tab-dashboard--telemetry--tổng-quan-hệ-thống)
+   - [🖥 2. Tab Agent Clients — Quản lý Danh sách Máy trạm](#2-tab-agent-clients--quản-lý-danh-sách-máy-trạm)
+   - [⚙ 3. Tab Processes — Quản lý Tiến trình Từ xa (Process Manager)](#3-tab-processes--quản-lý-tiến-trình-từ-xa-process-manager)
+   - [📁 4. Tab File Explorer — Quản lý Tập tin Từ xa (File Manager)](#4-tab-file-explorer--quản-lý-tập-tin-từ-xa-file-manager)
+   - [📺 5. Tab Screen Stream — Giám sát Màn hình Từ xa (Delta Tiles)](#5-tab-screen-stream--giám-sát-màn-hình-từ-xa-delta-tiles)
+   - [💻 6. Tab SOC Terminal — Giao diện Dòng lệnh Tương tác (RPC CLI)](#6-tab-soc-terminal--giao-diện-dòng-lệnh-tương-tác-rpc-cli)
+   - [📜 7. Tab Audit Log — Nhật ký Kiểm toán An ninh (Hash-Chain Log)](#7-tab-audit-log--nhật-ký-kiểm-toán-an-ninh-hash-chain-log)
+8. [Kịch bản Demo nhanh (Quick Demo Walkthrough)](#kịch-bản-demo-nhanh-quick-demo-walkthrough)
+9. [Giấy phép & Tác giả (License & Author)](#giấy-phép--tác-giả-license--author)
 
 ---
 
@@ -172,6 +180,7 @@ RemoteAdministrationSystem/
 ├── console/                # Module Admin Console GUI (JavaFX Views, Controllers)
 ├── benchmark/              # Module Runner đo đạc hiệu năng Virtual Threads
 └── docs/                   # Tài liệu chi tiết
+    ├── architecture.md     # Tài liệu tổng quan Kiến trúc mạng, Socket, TCP & Phân tích luồng
     ├── protocol.md         # Thông số kỹ thuật chi tiết của Giao thức 12-byte
     ├── security.md         # Tài liệu mô hình bảo mật mTLS, RBAC & Hash Chain Audit
     ├── benchmark.md        # Báo cáo kết quả kiểm thử đo đạc hiệu năng
@@ -227,24 +236,124 @@ java -jar agent/target/agent-1.0-SNAPSHOT.jar
 mvn -pl console javafx:run
 ```
 
-#### Bước 4: Chạy kiểm thử Concurrency Benchmark
+#### Bước 4: Chạy kiểm thử Concurrency Benchmark (Tùy chọn)
 ```bash
 java -jar benchmark/target/benchmark-1.0-SNAPSHOT.jar
 ```
 
 ---
 
-## Kịch bản Demo nhanh (Quick Demo Walkthrough)
+## Hướng dẫn sử dụng & Chi tiết Chức năng từng Tab (User Guide & UI Tabs Detail)
 
-1. **Kết nối mTLS & Session:** Khởi động Server, bật 2 Agent và khởi chạy Admin Console. Quan sát trên bảng điều khiển danh sách các máy trạm ONLINE ngay lập tức.
-2. **Quản lý Tiến trình (Process Manager):** Chọn máy `PC-01`, xem danh sách tiến trình đang chạy, thực hiện chấm dứt tiến trình `notepad.exe` (PID Kill).
-3. **Quản lý Tập tin (File Explorer):** Duyệt cây thư mục từ xa, thực hiện Tải file (Download) và Tải file lên (Upload), kiểm tra toàn vẹn bằng mã hash SHA-256.
-4. **Kiểm tra Phân quyền RBAC:** Đăng nhập tài khoản quyền `VIEWER`, thử thực hiện thao tác Kill Process -> Hệ thống trả về lỗi `403 FORBIDDEN`.
-5. **Kiểm tra Audit Log:** Mở tab Audit Log, kiểm tra dòng log vừa bị chặn và xác minh chuỗi Hash-Chain.
-6. **Demo Delta Screen Streaming:** Bật chế độ xem màn hình từ xa, di chuyển chuột hoặc gõ bản tin -> Quan sát chỉ số băng thông giảm **~89.4%** trên màn hình.
+Giao diện **Admin Console (JavaFX 24)** được thiết kế theo phong cách Cyberpunk / Modern SOC Dark Theme với 7 tab chức năng chính tại thanh điều hướng bên trái (Sidebar Navigation):
+
+```text
+┌────────────────────────────────────────────────────────────────────────┐
+│                        SRAP ADMIN CONSOLE GUI                          │
+├───────────────┬────────────────────────────────────────────────────────┤
+│ 📊 Dashboard  │  Bảng Telemetry tổng quan chỉ số hệ thống              │
+│ 🖥 Clients    │  Quản lý các máy trạm Agent đang ONLINE                │
+│ ⚙ Processes  │  Theo dõi & Chấm dứt tiến trình từ xa (PID Kill)      │
+│ 📁 Files      │  Duyệt cây thư mục & Truyền tập tin (Download/Upload)  │
+│ 📺 Screen     │  Giám sát màn hình từ xa (Delta Tiles 64x64)           │
+│ 💻 Terminal   │  Dòng lệnh tương tác trực tiếp RPC CLI                 │
+│ 📜 Audit Log  │  Nhật ký kiểm toán an ninh Hash-Chain (SHA-256)        │
+└───────────────┴────────────────────────────────────────────────────────┘
+```
 
 ---
 
+### 📊 1. Tab Dashboard — Telemetry & Tổng quan Hệ thống
+
+* **Mục đích:** Cung cấp cái nhìn tổng quan tức thì về sức khỏe hệ thống, số lượng kết nối real-time và thông số kiến trúc bảo mật.
+* **Các thành phần chính:**
+  * **Thẻ Active Agents / Online Sessions:** Hiển thị số lượng Client Agents đang kết nối trực tiếp với Server.
+  * **Thẻ Security Engine:** Trạng thái mã hóa mTLS 1.3 và phân quyền RBAC đang hoạt động (`SECURE`).
+  * **Thẻ Hash-Chain Integrity:** Xác nhận toàn vẹn nhật ký kiểm toán Hash-Chain SHA-256 (`VERIFIED`).
+  * **Bảng Chi tiết Kiến trúc (System Security Architecture):** Tóm tắt các thông số cốt lõi (12-Byte Protocol, Java 24 Virtual Threads, RBAC, SHA-256 Chain, Delta 64x64 Streaming).
+
+---
+
+### 🖥 2. Tab Agent Clients — Quản lý Danh sách Máy trạm
+
+* **Mục đích:** Theo dõi chi tiết danh sách tất cả các phiên làm việc (Sessions) của máy trạm Agent đang kết nối tới Server.
+* **Các tính năng & Thao tác:**
+  * **Button "Fetch Active Agents":** Gửi truy vấn cập nhật lại danh sách Agent mới nhất từ `SessionManager`.
+  * **Cột Status:** Đánh dấu màu xanh `● ONLINE` xác nhận đường truyền socket hoạt động bình thường.
+  * **Cột Client ID / Agent:** Tên nhận diện máy trạm (Hostname hoặc ID kết nối).
+  * **Cột IP Address:** Địa chỉ IP và Port kết nối xuất phát của Agent.
+  * **Cột Session State:** Trạng thái phiên làm việc (`AUTHENTICATED`, `ACTIVE`).
+
+---
+
+### ⚙ 3. Tab Processes — Quản lý Tiến trình Từ xa (Process Manager)
+
+* **Mục đích:** Cho phép Quản trị viên giám sát các tiến trình đang thực thi trên máy trạm Client và can thiệp dừng tiến trình nguy hiểm.
+* **Các tính năng & Thao tác:**
+  * **Button "Fetch Process List":** Gửi lệnh `PROCESS_LIST_REQUEST` tới Agent được chọn để lấy danh sách tiến trình đang chạy.
+  * **Ô Tìm kiếm (Search Field):** Lọc tức thì tiến trình theo **Tên tiến trình (Process Name)**, **Mã PID**, hoặc **Tài khoản người dùng (User Account)**.
+  * **Button "Terminate Selected Process (PID)":** Chọn một tiến trình trong bảng và nhấn nút để gửi lệnh `PROCESS_KILL_REQUEST` chấm dứt tiến trình đó từ xa.
+  * **Cơ chế Phân quyền & Bảo mật:** Thao tác Kill Process yêu cầu quyền `ADMIN`. Nếu người dùng mang quyền `VIEWER` thực hiện, hệ thống sẽ chặn và trả về lỗi `403 FORBIDDEN`.
+
+---
+
+### 📁 4. Tab File Explorer — Quản lý Tập tin Từ xa (File Manager)
+
+* **Mục đích:** Duyệt thư mục và quản lý cấu trúc tệp tin trên máy trạm từ xa thông qua đường truyền mạng an toàn.
+* **Các tính năng & Thao tác:**
+  * **Button "Fetch Files (.)":** Gửi lệnh `FILE_LIST_REQUEST` truy vấn danh sách file và thư mục tại đường dẫn hiện tại.
+  * **Thanh hiển thị "CURRENT PATH":** Cho biết thư mục gốc/hiện tại đang duyệt trên máy trạm.
+  * **Bảng Danh sách Tập tin:** Hiển thị Tên tập tin (`FILE NAME`), Dung lượng tính bằng Bytes (`SIZE`), và Loại (`DIR` cho thư mục, `FILE` cho tệp tin).
+  * **Bảo mật Chống Path Traversal:** Mọi đường dẫn gửi đi đều qua `PathValidator` tại Agent để chặn triệt để các hành vi truy cập trái phép ngoài phạm vi cho phép (như `../../etc/passwd` hoặc `../../Windows`).
+
+---
+
+### 📺 5. Tab Screen Stream — Giám sát Màn hình Từ xa (Delta Tiles)
+
+* **Mục đích:** Theo dõi hình ảnh màn hình máy trạm theo thời gian thực (Real-time Remote Desktop Streaming) với độ trễ thấp và tối ưu băng thông.
+* **Các tính năng & Thao tác:**
+  * **Button "Start Stream":** Gửi lệnh `SCREEN_START_REQUEST` kích hoạt luồng Virtual Thread chụp và cắt hình ảnh màn hình tại Agent.
+  * **Button "Stop Stream":** Gửi lệnh `SCREEN_STOP_REQUEST` dừng phát luồng màn hình.
+  * **Badge Thống kê Băng thông:** Hiển thị thông số nén dữ liệu nén ô vuông Delta Tile ($64 \times 64$), tối ưu **~89.4% băng thông mạng** so với truyền Full-Frame thô.
+  * **Vùng hiển thị Canvas JavaFX:** Tự động vẽ và cập nhật các khung vuông thay đổi (Delta Tiles) trực tiếp lên màn hình mà không bị giật lag.
+
+---
+
+### 💻 6. Tab SOC Terminal — Giao diện Dòng lệnh Tương tác (RPC CLI)
+
+* **Mục đích:** Dành cho các Quản trị viên SOC (Security Operations Center) ưu chuộng giao diện dòng lệnh (CLI) để gửi nhanh các câu lệnh RPC tới hệ thống.
+* **Các câu lệnh hỗ trợ:**
+  * `help`: Hiển thị danh sách các lệnh CLI khả dụng.
+  * `system.info`: Truy vấn thông tin cấu hình và telemetry hệ thống Server.
+  * `client.list`: Liệt kê các Agent đang kết nối.
+  * `process.list`: Lấy danh sách tiến trình hệ thống từ xa.
+  * `audit.verify`: Kiểm tra tính toàn vẹn của chuỗi Hash-Chain Audit Log.
+  * `clear`: Xóa sạch màn hình Terminal.
+
+---
+
+### 📜 7. Tab Audit Log — Nhật ký Kiểm toán An ninh (Hash-Chain Log)
+
+* **Mục đích:** Ghi lại toàn bộ vết lịch sử thao tác của các nhà quản trị để phục vụ công tác kiểm toán an ninh mạng (Cybersecurity Auditing).
+* **Các đặc tính nổi bật:**
+  * **Ghi vết tự động:** Tự động lưu vết thời gian (`HH:mm:ss.SSS`), hành động thực hiện (Login, Kill Process, Fetch Files, Stream Screen) và kết quả (Success / Forbidden).
+  * **Chuỗi Mã hóa Hash-Chain SHA-256:** Mỗi dòng log chứa mã hash kết hợp với mã hash của dòng log trước đó $H_n = \text{SHA256}(H_{n-1} \parallel \dots)$.
+  * **Chống sửa đổi (Tamper-Evident):** Bất kỳ hành vi can thiệp hay chỉnh sửa file log trong quá khứ nào cũng sẽ làm sai lệch toàn bộ chuỗi Hash phía sau, giúp quản trị viên phát hiện vết log đã bị xâm phạm lập tức.
+
+---
+
+## Kịch bản Demo nhanh (Quick Demo Walkthrough)
+
+1. **Kết nối mTLS & Session:** Khởi động Server, bật 2 Agent và khởi chạy Admin Console. Quan sát trên bảng điều khiển danh sách các máy trạm ONLINE ngay lập tức tại Tab **Agent Clients**.
+2. **Quản lý Tiến trình (Process Manager):** Chọn tab **Processes**, nhấn "Fetch Process List", lọc tìm tiến trình `notepad.exe` và nhấn "Terminate Selected Process" để kiểm tra tính năng PID Kill.
+3. **Quản lý Tập tin (File Explorer):** Chọn tab **File Explorer**, nhấn "Fetch Files", quan sát cây thư mục từ xa được hiển thị minh bạch.
+4. **Kiểm tra Phân quyền RBAC:** Đăng nhập tài khoản quyền `VIEWER`, thử thực hiện thao tác Kill Process -> Hệ thống trả về lỗi `403 FORBIDDEN`.
+5. **Kiểm tra Audit Log:** Chọn tab **Audit Log**, kiểm tra dòng log vừa bị chặn và xác minh chuỗi Hash-Chain SHA-256.
+6. **Demo Delta Screen Streaming:** Chọn tab **Screen Stream**, nhấn "Start Stream", di chuyển chuột hoặc mở ứng dụng ở Agent -> Quan sát chỉ số băng thông giảm **~89.4%** trên màn hình Console.
+
+---
+
+## Giấy phép & Tác giả (License & Author)
 
 Dự án được phân phối dưới giấy phép **MIT License**.
 
