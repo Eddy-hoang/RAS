@@ -189,10 +189,18 @@ public class AppLauncher extends Application {
 
                 if (res.getPayloadLength() > 0) {
                     List<Map<String, Object>> list = JsonCodec.fromJson(res.getPayload(), List.class);
+                    List<String> clientIds = list.stream()
+                            .filter(m -> m.containsKey("clientId"))
+                            .map(m -> m.get("clientId").toString())
+                            .toList();
+
                     Platform.runLater(() -> {
                         clientManagerView.updateClients(list);
                         headerView.updateActiveClientsCount(list.size());
                         dashboardView.updateMetrics(list.size());
+                        screenStreamView.updateClientList(clientIds);
+                        processManagerView.updateClientList(clientIds);
+                        fileExplorerView.updateClientList(clientIds);
                         appendAudit("Fetched " + list.size() + " active online clients.");
                     });
                 }
@@ -202,11 +210,14 @@ public class AppLauncher extends Application {
         }).start();
     }
 
-    private void fetchProcesses() {
+    private void fetchProcesses(String targetClientId) {
         if (consoleOut == null) return;
         new Thread(() -> {
             try {
-                Frame req = new Frame(FrameType.CONTROL, CommandType.PROCESS_LIST_REQUEST, new byte[0]);
+                byte[] payload = (targetClientId != null && !targetClientId.isEmpty())
+                        ? JsonCodec.toJsonBytes(Map.of("clientId", targetClientId))
+                        : new byte[0];
+                Frame req = new Frame(FrameType.CONTROL, CommandType.PROCESS_LIST_REQUEST, payload);
                 sendFrame(req);
                 Frame res = readNextResponseFrame();
 
@@ -223,7 +234,7 @@ public class AppLauncher extends Application {
                     );
                     Platform.runLater(() -> {
                         processManagerView.updateProcesses(list);
-                        appendAudit("Fetched " + list.size() + " remote processes.");
+                        appendAudit("Fetched " + list.size() + " remote processes from [" + (targetClientId != null ? targetClientId : "DEFAULT") + "].");
                     });
                 }
             } catch (Exception e) {
@@ -232,17 +243,22 @@ public class AppLauncher extends Application {
         }).start();
     }
 
-    private void killProcess(long pid) {
+    private void killProcess(String targetClientId, long pid) {
         if (consoleOut == null) return;
         new Thread(() -> {
             try {
-                byte[] payload = JsonCodec.toJsonBytes(Map.of("pid", pid));
+                Map<String, Object> map = new java.util.HashMap<>();
+                map.put("pid", pid);
+                if (targetClientId != null && !targetClientId.isEmpty()) {
+                    map.put("clientId", targetClientId);
+                }
+                byte[] payload = JsonCodec.toJsonBytes(map);
                 Frame req = new Frame(FrameType.CONTROL, CommandType.PROCESS_KILL_REQUEST, payload);
                 sendFrame(req);
                 Frame res = readNextResponseFrame();
                 Platform.runLater(() -> {
-                    appendAudit("Terminated process PID " + pid + ". Result: " + new String(res.getPayload(), StandardCharsets.UTF_8));
-                    fetchProcesses();
+                    appendAudit("Terminated process PID " + pid + " on [" + (targetClientId != null ? targetClientId : "DEFAULT") + "]. Result: " + new String(res.getPayload(), StandardCharsets.UTF_8));
+                    fetchProcesses(targetClientId);
                 });
             } catch (Exception e) {
                 Platform.runLater(() -> appendAudit("Error terminating PID " + pid + ": " + e.getMessage()));
@@ -250,11 +266,16 @@ public class AppLauncher extends Application {
         }).start();
     }
 
-    private void fetchFiles() {
+    private void fetchFiles(String targetClientId) {
         if (consoleOut == null) return;
         new Thread(() -> {
             try {
-                byte[] payload = JsonCodec.toJsonBytes(Map.of("path", "."));
+                Map<String, Object> map = new java.util.HashMap<>();
+                map.put("path", ".");
+                if (targetClientId != null && !targetClientId.isEmpty()) {
+                    map.put("clientId", targetClientId);
+                }
+                byte[] payload = JsonCodec.toJsonBytes(map);
                 Frame req = new Frame(FrameType.CONTROL, CommandType.FILE_LIST_REQUEST, payload);
                 sendFrame(req);
                 Frame res = readNextResponseFrame();
@@ -266,7 +287,7 @@ public class AppLauncher extends Application {
                     );
                     Platform.runLater(() -> {
                         fileExplorerView.updateFiles(list);
-                        appendAudit("Fetched " + list.size() + " files from remote directory.");
+                        appendAudit("Fetched " + list.size() + " files from [" + (targetClientId != null ? targetClientId : "DEFAULT") + "] remote directory.");
                     });
                 }
             } catch (Exception e) {
@@ -275,28 +296,34 @@ public class AppLauncher extends Application {
         }).start();
     }
 
-    private void startScreenStream() {
+    private void startScreenStream(String targetClientId) {
         if (consoleOut == null) return;
         new Thread(() -> {
             try {
-                Frame req = new Frame(FrameType.CONTROL, CommandType.SCREEN_START_REQUEST, new byte[0]);
+                byte[] payload = (targetClientId != null && !targetClientId.isEmpty())
+                        ? JsonCodec.toJsonBytes(Map.of("clientId", targetClientId))
+                        : new byte[0];
+                Frame req = new Frame(FrameType.CONTROL, CommandType.SCREEN_START_REQUEST, payload);
                 sendFrame(req);
                 Frame res = readNextResponseFrame();
-                Platform.runLater(() -> appendAudit("Sent SCREEN_START_REQUEST to Server/Agent. Response: " + new String(res.getPayload(), StandardCharsets.UTF_8)));
+                Platform.runLater(() -> appendAudit("Sent SCREEN_START_REQUEST for Agent [" + (targetClientId != null ? targetClientId : "DEFAULT") + "]. Response: " + new String(res.getPayload(), StandardCharsets.UTF_8)));
             } catch (Exception e) {
                 Platform.runLater(() -> appendAudit("Error starting screen stream: " + e.getMessage()));
             }
         }).start();
     }
 
-    private void stopScreenStream() {
+    private void stopScreenStream(String targetClientId) {
         if (consoleOut == null) return;
         new Thread(() -> {
             try {
-                Frame req = new Frame(FrameType.CONTROL, CommandType.SCREEN_STOP_REQUEST, new byte[0]);
+                byte[] payload = (targetClientId != null && !targetClientId.isEmpty())
+                        ? JsonCodec.toJsonBytes(Map.of("clientId", targetClientId))
+                        : new byte[0];
+                Frame req = new Frame(FrameType.CONTROL, CommandType.SCREEN_STOP_REQUEST, payload);
                 sendFrame(req);
                 Frame res = readNextResponseFrame();
-                Platform.runLater(() -> appendAudit("Sent SCREEN_STOP_REQUEST to Server/Agent. Response: " + new String(res.getPayload(), StandardCharsets.UTF_8)));
+                Platform.runLater(() -> appendAudit("Sent SCREEN_STOP_REQUEST for Agent [" + (targetClientId != null ? targetClientId : "DEFAULT") + "]. Response: " + new String(res.getPayload(), StandardCharsets.UTF_8)));
             } catch (Exception e) {
                 Platform.runLater(() -> appendAudit("Error stopping screen stream: " + e.getMessage()));
             }
@@ -326,7 +353,7 @@ public class AppLauncher extends Application {
                 terminalView.appendOutput("[client.list] Currently registered agents count: " + clientManagerView.getClientCount());
                 break;
             case "process.list":
-                fetchProcesses();
+                fetchProcesses(null);
                 terminalView.appendOutput("[process.list] Triggered remote process list request.");
                 break;
             case "audit.verify":

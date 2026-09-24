@@ -71,7 +71,11 @@ public class ScreenCaptureService {
         g2d.dispose();
 
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
-        ImageIO.write(rgbImage, "jpg", baos);
+        boolean written = ImageIO.write(rgbImage, "jpg", baos);
+        if (!written || baos.size() == 0) {
+            baos.reset();
+            ImageIO.write(rgbImage, "png", baos);
+        }
         return baos.toByteArray();
     }
 

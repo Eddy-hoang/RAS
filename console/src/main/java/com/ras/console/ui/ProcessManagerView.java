@@ -1,6 +1,7 @@
 package com.ras.console.ui;
 
 import com.ras.common.dto.ProcessInfoDTO;
+import javafx.application.Platform;
 import javafx.beans.property.ReadOnlyObjectWrapper;
 import javafx.beans.property.SimpleStringProperty;
 import javafx.collections.FXCollections;
@@ -14,6 +15,7 @@ import javafx.scene.layout.Priority;
 import javafx.scene.layout.VBox;
 
 import java.util.List;
+import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 
 public class ProcessManagerView extends VBox {
@@ -22,7 +24,14 @@ public class ProcessManagerView extends VBox {
     private final ObservableList<ProcessInfoDTO> processData = FXCollections.observableArrayList();
     private final FilteredList<ProcessInfoDTO> filteredProcessData;
 
-    public ProcessManagerView(Runnable onFetch, Consumer<Long> onKill) {
+    private final ComboBox<String> clientComboBox = new ComboBox<>();
+    private final Consumer<String> onFetch;
+    private final BiConsumer<String, Long> onKill;
+
+    public ProcessManagerView(Consumer<String> onFetch, BiConsumer<String, Long> onKill) {
+        this.onFetch = onFetch;
+        this.onKill = onKill;
+
         setPadding(new Insets(24));
         setSpacing(20);
         setStyle("-fx-background-color: #0f172a;");
@@ -33,17 +42,30 @@ public class ProcessManagerView extends VBox {
         HBox topControls = new HBox(14);
         topControls.setAlignment(Pos.CENTER_LEFT);
 
+        Label selectLabel = new Label("TARGET AGENT:");
+        selectLabel.setStyle("-fx-text-fill: #94a3b8; -fx-font-weight: bold; -fx-font-size: 12px;");
+
+        clientComboBox.setPromptText("Select Agent...");
+        clientComboBox.setStyle("""
+            -fx-background-color: #1e293b;
+            -fx-text-fill: #38bdf8;
+            -fx-border-color: #334155;
+            -fx-border-radius: 6px;
+            -fx-font-weight: bold;
+            """);
+
         Button fetchProcBtn = new Button("Fetch Process List");
         fetchProcBtn.getStyleClass().add("primary-button");
         fetchProcBtn.setOnAction(e -> {
-            if (onFetch != null) onFetch.run();
+            String selectedClient = clientComboBox.getValue();
+            if (this.onFetch != null) this.onFetch.accept(selectedClient);
         });
 
         TextField searchField = new TextField();
         searchField.setPromptText("Search processes by Name, PID, User...");
-        searchField.setPrefWidth(360);
+        searchField.setPrefWidth(320);
 
-        topControls.getChildren().addAll(fetchProcBtn, searchField);
+        topControls.getChildren().addAll(selectLabel, clientComboBox, fetchProcBtn, searchField);
 
         filteredProcessData = new FilteredList<>(processData, p -> true);
 
@@ -78,14 +100,27 @@ public class ProcessManagerView extends VBox {
         killBtn.getStyleClass().add("danger-button");
         killBtn.setOnAction(e -> {
             ProcessInfoDTO selected = processTable.getSelectionModel().getSelectedItem();
-            if (selected != null && onKill != null) {
-                onKill.accept(selected.getPid());
+            String selectedClient = clientComboBox.getValue();
+            if (selected != null && this.onKill != null) {
+                this.onKill.accept(selectedClient, selected.getPid());
             }
         });
 
         VBox.setVgrow(processTable, Priority.ALWAYS);
 
         getChildren().addAll(title, topControls, processTable, killBtn);
+    }
+
+    public void updateClientList(List<String> clientIds) {
+        Platform.runLater(() -> {
+            String current = clientComboBox.getValue();
+            clientComboBox.getItems().setAll(clientIds);
+            if (current != null && clientIds.contains(current)) {
+                clientComboBox.setValue(current);
+            } else if (!clientIds.isEmpty()) {
+                clientComboBox.setValue(clientIds.get(0));
+            }
+        });
     }
 
     public void updateProcesses(List<ProcessInfoDTO> list) {

@@ -14,6 +14,12 @@ public class SessionManager {
     private final ConcurrentHashMap<String, AgentSession> sessionsByClient = new ConcurrentHashMap<>();
 
     public AgentSession registerSession(String clientId, AgentSession.ClientType clientType) {
+        AgentSession existing = sessionsByClient.get(clientId);
+        if (existing != null) {
+            log.info("Client [{}] reconnected. Removing old orphan session [{}]", clientId, existing.getSessionToken());
+            removeSession(existing.getSessionToken());
+        }
+
         AgentSession session = new AgentSession(clientId, clientType);
         sessionsByToken.put(session.getSessionToken(), session);
         sessionsByClient.put(clientId, session);
@@ -36,7 +42,7 @@ public class SessionManager {
     public void removeSession(String token) {
         AgentSession session = sessionsByToken.remove(token);
         if (session != null) {
-            sessionsByClient.remove(session.getClientId());
+            sessionsByClient.remove(session.getClientId(), session);
             session.close();
             log.info("Closed and removed session: {}", token);
         }

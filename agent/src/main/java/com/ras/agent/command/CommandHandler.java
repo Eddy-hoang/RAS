@@ -60,8 +60,8 @@ public class CommandHandler {
                     }
                     Thread.sleep(100);
                 }
-            } catch (Exception e) {
-                log.warn("Screen stream loop ended: {}", e.getMessage());
+            } catch (Throwable e) {
+                log.warn("Screen stream loop ended: {}", e.getMessage(), e);
             } finally {
                 isStreamThreadRunning = false;
                 log.info("Remote Screen stream loop stopped");

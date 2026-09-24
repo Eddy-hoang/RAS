@@ -38,7 +38,8 @@ public class HeartbeatService {
                                 FrameCodec.writeFrame(session.getControlOutputStream(), pingFrame);
                             }
                         } catch (Exception e) {
-                            log.warn("Failed sending heartbeat ping to session [{}]: {}", session.getSessionToken(), e.getMessage());
+                            log.warn("Failed sending heartbeat ping to session [{}]: {}. Removing session.", session.getSessionToken(), e.getMessage());
+                            sessionManager.removeSession(session.getSessionToken());
                         }
                     }
                 }

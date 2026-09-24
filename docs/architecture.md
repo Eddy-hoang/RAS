@@ -43,7 +43,60 @@ Hệ thống **Secure Remote Administration Platform (SRAP / RAS)** được thi
 * **Giao thức truyền tải tầng ứng dụng tùy chỉnh nhị phân 12-byte (Binary Application Framing Protocol)** giúp giảm tối đa overhead so với HTTP/REST hay JSON thuần.
 * **Mô hình kết nối ngược Outbound TCP Connection** cho phép Agent tự động vượt NAT/Firewall mà không cần mở port tĩnh tại Client.
 * **Tối ưu hóa hiệu năng đồng thời bằng Java 24 Virtual Threads (JEP 444)** giúp Server duy trì hàng ngàn Socket đồng thời với mức sử dụng bộ nhớ RAM cực nhỏ (< 50MB).
-* **Mã hóa đường truyền mTLS 1.3**, phân quyền RBAC và chuỗi lưu vết Audit Log bằng **Hash-Chain** bảo vệ toàn vẹn dữ liệu chống sửa đổi trái phép.
+---
+
+## 1.1 Bảng Ánh xạ Chi tiết giữa Class Java & Hoạt động Hệ thống (Java Class Responsibility Matrix)
+
+Dưới đây là bảng tổng hợp ánh xạ trực tiếp giữa từng lớp Java trong mã nguồn dự án và chức năng/hoạt động thực tế tương ứng:
+
+### 📦 Module `common` (`com.ras.common`) — Thư viện Giao thức & Tiện ích chung
+| Tên Class Java | Tệp mã nguồn (Source File) | Chức năng & Hoạt động tương ứng trong Hệ thống |
+| :--- | :--- | :--- |
+| `Frame` | `common/.../protocol/Frame.java` | Đối tượng đại diện cho 1 gói tin (Application Frame) gồm 12-byte Header và mảng byte Payload. |
+| `FrameCodec` | `common/.../protocol/FrameCodec.java` | Bộ mã hóa/giải mã stream nhị phân (Binary Codec): Ghi Header 12 byte, đọc chính xác `payloadLen` chống dính/xé gói TCP (`encode`, `readFrame`, `decodeBuffer`). |
+| `FrameType` | `common/.../protocol/FrameType.java` | Enum phân loại loại Kênh/Frame: `CONTROL` (0x0001), `DATA` (0x0002), `HEARTBEAT` (0x0003), `CLOSE` (0x0004). |
+| `CommandType` | `common/.../protocol/CommandType.java` | Enum định nghĩa mã Opcode các lệnh RPC (`SYSTEM_INFO_REQUEST`, `PROCESS_LIST_REQUEST`, `PROCESS_KILL_REQUEST`, `FILE_LIST_REQUEST`, `SCREEN_START_REQUEST`, `SCREEN_TILE_DATA`, `HEARTBEAT_PING`, ...). |
+| `JsonCodec` | `common/.../serialization/JsonCodec.java` | Chuyển đổi đối tượng DTO sang JSON byte array cho phần Payload của Frame. |
+| `SSLContextHelper` | `common/.../security/SSLContextHelper.java` | Cấu hình `SSLContext` hỗ trợ mTLS 1.3 bảo mật các đường truyền TCP Socket với Java KeyStore (`.jks`). |
+| `PathValidator` | `common/.../util/PathValidator.java` | Kiểm tra tính hợp lệ của đường dẫn tập tin, chặn triệt để tấn công Path Traversal (`../`). |
+| `ChecksumUtil` | `common/.../util/ChecksumUtil.java` | Tính mã băm SHA-256 xác minh tính toàn vẹn của tệp tin và dữ liệu kiểm toán. |
+
+### 📦 Module `server` (`com.ras.server`) — Máy chủ Trung tâm & Relay Node
+| Tên Class Java | Tệp mã nguồn (Source File) | Chức năng & Hoạt động tương ứng trong Hệ thống |
+| :--- | :--- | :--- |
+| `ServerMain` | `server/.../ServerMain.java` | Điểm khởi chạy của SRAP Server, khởi tạo các dịch vụ chính và kích hoạt kết nối listening. |
+| `ServerListener` | `server/.../network/ServerListener.java` | Lắng nghe kết nối TCP trên port 8090, sử dụng **Java 24 Virtual Threads** (`Executors.newVirtualThreadPerTaskExecutor()`) chấp nhận và xử lý nhiều Socket đồng thời. |
+| `SessionManager` | `server/.../session/SessionManager.java` | Quản lý bảng lưu trữ các phiên làm việc (`AgentSession`), cấp Session Token và theo dõi trạng thái `AUTHENTICATED` / `ACTIVE`. |
+| `AgentSession` | `server/.../session/AgentSession.java` | Lưu thông tin 1 phiên làm việc của Client Agent hoặc Admin Console (chứa Socket, Token, State, Last Heartbeat). |
+| `CommandDispatcher` | `server/.../service/CommandDispatcher.java` | Bộ định tuyến trung tâm: Tiếp nhận Frame từ Admin Console, kiểm tra quyền hạn và chuyển tiếp (Relay) tới Agent đích. |
+| `ScreenRelayService` | `server/.../service/ScreenRelayService.java` | Định tuyến Zero-Copy truyền các ô hình ảnh màn hình nhị phân từ Agent trực tiếp tới Admin Console UI. |
+| `HeartbeatService` | `server/.../service/HeartbeatService.java` | Định kỳ (15s) phát PING kiểm tra và tự động ngắt các Socket bị hỏng kết nối ngầm (Stale Sessions). |
+| `RBACEnforcer` | `server/.../security/RBACEnforcer.java` | Kiểm tra quyền hạn theo vai trò (Role-Based Access Control: `VIEWER`, `OPERATOR`, `ADMIN`). |
+| `AuditLogger` | `server/.../audit/AuditLogger.java` | Ghi nhật ký kiểm toán an ninh dạng chuỗi mã hóa **Hash-Chain SHA-256** chống chỉnh sửa ($H_n = \text{SHA256}(H_{n-1} \parallel \dots)$). |
+
+### 📦 Module `agent` (`com.ras.agent`) — Tiến trình Quản trị trên Máy trạm
+| Tên Class Java | Tệp mã nguồn (Source File) | Chức năng & Hoạt động tương ứng trong Hệ thống |
+| :--- | :--- | :--- |
+| `AgentMain` | `agent/.../AgentMain.java` | Điểm khởi chạy của Client Agent: Chủ động tạo kết nối TCP Outbound mTLS tới Server, gửi `SESSION_HELLO` và chạy vòng lặp lắng nghe lệnh. |
+| `CommandHandler` | `agent/.../command/CommandHandler.java` | Giải mã lệnh RPC từ Frame, gọi dịch vụ thực thi tương ứng và kích hoạt Virtual Thread phát stream màn hình. |
+| `CommandPolicyEnforcer` | `agent/.../security/CommandPolicyEnforcer.java` | Lớp phòng vệ tại Agent (Defense-in-depth), kiểm tra allowlist cục bộ trước khi cho phép thực thi lệnh. |
+| `SystemService` | `agent/.../service/SystemService.java` | Thu thập thông tin cấu hình phần cứng, RAM, OS (`SystemInfoDTO`). |
+| `ProcessService` | `agent/.../service/ProcessService.java` | Quản lý tiến trình HĐH: Liệt kê các tiến trình đang chạy và chấm dứt tiến trình theo PID (`ProcessHandle.of(pid)`). |
+| `FileService` | `agent/.../service/FileService.java` | Duyệt cây thư mục và đọc/ghi tập tin cục bộ trên máy trạm. |
+| `ScreenCaptureService` | `agent/.../screen/ScreenCaptureService.java` | Chụp hình ảnh màn hình, cắt lưới ô vuông $64 \times 64$, băm SHA-256 để lọc Delta Tiles thay đổi và nén JPEG. |
+
+### 📦 Module `console` (`com.ras.console`) — Giao diện Quản trị viên JavaFX GUI
+| Tên Class Java | Tệp mã nguồn (Source File) | Chức năng & Hoạt động tương ứng trong Hệ thống |
+| :--- | :--- | :--- |
+| `ConsoleLauncher` | `console/.../ConsoleLauncher.java` | Động cơ khởi chạy ứng dụng GUI Admin Console (JavaFX 24). |
+| `SidebarView` | `console/.../ui/SidebarView.java` | Thanh điều hướng Sidebar chứa 7 Tab chuyển đổi chức năng. |
+| `DashboardView` | `console/.../ui/DashboardView.java` | **Tab Dashboard:** Hiển thị chỉ số Telemetry hệ thống, số kết nối Online và cấu trúc bảo mật. |
+| `ClientManagerView` | `console/.../ui/ClientManagerView.java` | **Tab Agent Clients:** Bảng hiển thị danh sách các máy trạm Agent đang `● ONLINE`. |
+| `ProcessManagerView` | `console/.../ui/ProcessManagerView.java` | **Tab Processes:** Xem danh sách tiến trình từ xa, ô lọc tìm kiếm và nút Kill PID. |
+| `FileExplorerView` | `console/.../ui/FileExplorerView.java` | **Tab File Explorer:** Duyệt cây thư mục và cấu trúc tệp tin từ xa. |
+| `ScreenStreamView` | `console/.../ui/ScreenStreamView.java` | **Tab Screen Stream:** Nút Start/Stop Stream và Canvas render hình ảnh màn hình nén Delta Tiles. |
+| `TerminalView` | `console/.../ui/TerminalView.java` | **Tab SOC Terminal:** Dòng lệnh CLI tương tác trực tiếp backend RPC (`help`, `system.info`, ...). |
+| `AuditLogView` | `console/.../ui/AuditLogView.java` | **Tab Audit Log:** Hiển thị nhật ký an ninh dạng chuỗi mã hóa Hash-Chain SHA-256. |
 
 ---
 
